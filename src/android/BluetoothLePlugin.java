@@ -1477,7 +1477,12 @@ public class BluetoothLePlugin extends CordovaPlugin {
 
     connections.put(device.getAddress(), connection);
 
-    BluetoothGatt bluetoothGatt = device.connectGatt(cordova.getActivity().getApplicationContext(), autoConnect, bluetoothGattCallback);
+    BluetoothGatt bluetoothGatt;
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+      bluetoothGatt = device.connectGatt(cordova.getActivity().getApplicationContext(), autoConnect, bluetoothGattCallback, BluetoothDevice.TRANSPORT_LE);
+    } else {
+      bluetoothGatt = device.connectGatt(cordova.getActivity().getApplicationContext(), autoConnect, bluetoothGattCallback);
+    }
 
     connection.put(keyPeripheral, bluetoothGatt);
   }
@@ -1659,20 +1664,18 @@ public class BluetoothLePlugin extends CordovaPlugin {
 
     addDevice(returnObj, device);
 
-    if (obj == null || !obj.optBoolean("clearCache", false)) {
-      int discoveredState = Integer.valueOf(connection.get(keyDiscoveredState).toString());
-      //Already initiated discovery
-      if (discoveredState == STATE_DISCOVERING) {
-        addProperty(returnObj, keyError, errorDiscover);
-        addProperty(returnObj, keyMessage, logAlreadyDiscovering);
-        callbackContext.error(returnObj);
-        return;
-      } else if (discoveredState == STATE_DISCOVERED) {
-        //Already discovered
-        returnObj = getDiscovery(bluetoothGatt);
-        callbackContext.success(returnObj);
-        return;
-      }
+    int discoveredState = Integer.valueOf(connection.get(keyDiscoveredState).toString());
+    //Already initiated discovery
+    if (discoveredState == STATE_DISCOVERING) {
+      addProperty(returnObj, keyError, errorDiscover);
+      addProperty(returnObj, keyMessage, logAlreadyDiscovering);
+      callbackContext.error(returnObj);
+      return;
+    } else if (discoveredState == STATE_DISCOVERED) {
+      //Already discovered
+      returnObj = getDiscovery(bluetoothGatt);
+      callbackContext.success(returnObj);
+      return;
     }
 
     //Else undiscovered, so start discovery
@@ -2801,7 +2804,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
 
             // Reset isAdvertising when adapter is off (if STATE_TURNING_OFF doesn't trigger)
             if (isAdvertising) isAdvertising = false;
-            
+
             gattServer = null;
 
             pluginResult = new PluginResult(PluginResult.Status.OK, returnObj);
@@ -3907,6 +3910,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
 
       int oldState = Integer.valueOf(connection.get(keyState).toString());
       if (status != BluetoothGatt.GATT_SUCCESS && oldState == BluetoothProfile.STATE_CONNECTING) {
+        Log.e("ble status", status + "");
         //Clear out all the callbacks
         connection = new HashMap<Object, Object>();
         connection.put(keyPeripheral, gatt);
